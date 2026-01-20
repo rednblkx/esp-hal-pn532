@@ -28,9 +28,10 @@ SpiTransport::SpiTransport(gpio_num_t irq, gpio_num_t miso, gpio_num_t mosi,
     : _ss(ss), _irq(irq) {
   esp_err_t ret;
 
-  if (!GPIO_IS_VALID_DIGITAL_IO_PAD(miso) ||
-      !GPIO_IS_VALID_DIGITAL_IO_PAD(mosi) ||
-      !GPIO_IS_VALID_DIGITAL_IO_PAD(sck) || !GPIO_IS_VALID_OUTPUT_GPIO(ss)) {
+  if (!GPIO_IS_VALID_GPIO(miso) ||
+      !GPIO_IS_VALID_OUTPUT_GPIO(mosi) ||
+      !GPIO_IS_VALID_GPIO(sck) || !GPIO_IS_VALID_OUTPUT_GPIO(ss)) {
+    ESP_LOGE(TAG, "Invalid GPIO configuration");
     return;
   }
 
