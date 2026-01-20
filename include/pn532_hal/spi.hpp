@@ -4,8 +4,10 @@
 #include "soc/gpio_num.h"
 #include "pn532_cxx/transport.hpp"
 #include <atomic>
+#include <cstddef>
 #include <driver/gpio.h>
 #include <driver/spi_master.h>
+#include <esp_heap_caps.h>
 #include <span>
 
 namespace pn532 {
@@ -31,9 +33,13 @@ protected:
   void endTransaction() override;
 
 private:
-  spi_device_handle_t _spi;
+  static constexpr size_t DMA_BUFFER_SIZE = 265;
+
+  spi_device_handle_t _spi = nullptr;
   gpio_num_t _ss;
   gpio_num_t _irq = GPIO_NUM_NC;
+
+  uint8_t *_dma_buffer = nullptr;
 
   static void IRAM_ATTR irq_isr_handler(void *arg);
 

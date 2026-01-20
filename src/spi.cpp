@@ -1,11 +1,13 @@
 #include "pn532_hal/spi.hpp"
 #include "driver/gpio.h"
+#include "driver/spi_common.h"
 #include "driver/spi_master.h"
 #include "esp_err.h"
+#include "esp_heap_caps.h"
 #include "esp_intr_alloc.h"
-#include "esp_log_level.h"
 #include "hal/gpio_types.h"
 #include "soc/gpio_num.h"
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <esp_log.h>
@@ -50,11 +52,13 @@ SpiTransport::SpiTransport(gpio_num_t irq, gpio_num_t miso, gpio_num_t mosi,
   buscfg.sclk_io_num = sck;
   buscfg.quadwp_io_num = -1;
   buscfg.quadhd_io_num = -1;
-  buscfg.max_transfer_sz = 0;
+  buscfg.max_transfer_sz = SPI_MAX_DMA_LEN;
 
   ret = spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO);
-  if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
-    ESP_LOGE(TAG, "Failed to initialize SPI bus");
+  if (ret == ESP_ERR_INVALID_STATE) {
+    ESP_LOGW(TAG, "SPI bus already initialized, reusing");
+  } else if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to initialize SPI bus: %s", esp_err_to_name(ret));
     return;
   }
 
@@ -70,7 +74,8 @@ SpiTransport::SpiTransport(gpio_num_t irq, gpio_num_t miso, gpio_num_t mosi,
 
   ret = spi_bus_add_device(SPI2_HOST, &devcfg, &_spi);
   if (ret != ESP_OK) {
-    ESP_LOGE(TAG, "Failed to add SPI device");
+    ESP_LOGE(TAG, "Failed to add SPI device: %s", esp_err_to_name(ret));
+    return;
   }
 
   if (_irq != GPIO_NUM_NC) {
@@ -89,9 +94,19 @@ SpiTransport::SpiTransport(gpio_num_t irq, gpio_num_t miso, gpio_num_t mosi,
       ESP_LOGE(TAG, "Failed to add ISR handler");
     }
   }
+
+  _dma_buffer =
+      static_cast<uint8_t *>(spi_bus_dma_memory_alloc(SPI2_HOST, DMA_BUFFER_SIZE, MALLOC_CAP_8BIT));
+  if (!_dma_buffer) {
+    ESP_LOGE(TAG, "Failed to allocate DMA buffer");
+  }
 }
 
 SpiTransport::~SpiTransport() {
+  if (_dma_buffer) {
+    heap_caps_free(_dma_buffer);
+    _dma_buffer = nullptr;
+  }
   if (_spi) {
     spi_bus_remove_device(_spi);
   }
@@ -147,10 +162,17 @@ Transaction SpiTransport::begin() {
 }
 
 Status SpiTransport::writeChunk(std::span<const uint8_t> data) {
+  if (!_dma_buffer || data.size() > DMA_BUFFER_SIZE) {
+    ESP_LOGE(TAG, "writeChunk: DMA buffer unavailable or data too large");
+    return TRANSPORT_ERROR;
+  }
+
+  std::copy(data.begin(), data.end(), _dma_buffer);
+
   spi_transaction_t t_data;
   memset(&t_data, 0, sizeof(t_data));
   t_data.length = data.size() * 8;
-  t_data.tx_buffer = data.data();
+  t_data.tx_buffer = _dma_buffer;
 
   esp_err_t ret = spi_device_transmit(_spi, &t_data);
   if (ret != ESP_OK) {
@@ -199,17 +221,24 @@ Status SpiTransport::prepareRead() {
 }
 
 Status SpiTransport::readChunk(std::span<uint8_t> buffer) {
+  if (!_dma_buffer || buffer.size() > DMA_BUFFER_SIZE) {
+    ESP_LOGE(TAG, "readChunk: DMA buffer unavailable or request too large");
+    return TRANSPORT_ERROR;
+  }
+
   spi_transaction_t t_data;
   memset(&t_data, 0, sizeof(t_data));
   t_data.length = buffer.size() * 8;
   t_data.rxlength = buffer.size() * 8;
-  t_data.rx_buffer = buffer.data();
+  t_data.rx_buffer = _dma_buffer;
 
   esp_err_t ret = spi_device_transmit(_spi, &t_data);
   if (ret != ESP_OK) {
     ESP_LOGE(TAG, "SPI readChunk failed");
     return TRANSPORT_ERROR;
   }
+
+  std::copy(_dma_buffer, _dma_buffer + buffer.size(), buffer.data());
 
   ESP_LOG_BUFFER_HEX_LEVEL(TAG, buffer.data(), buffer.size(), ESP_LOG_VERBOSE);
   return SUCCESS;
