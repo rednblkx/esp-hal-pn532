@@ -5,6 +5,7 @@
 #include "esp_err.h"
 #include "esp_heap_caps.h"
 #include "esp_intr_alloc.h"
+#include "fmt/ranges.h"
 #include "hal/gpio_types.h"
 #include "soc/gpio_num.h"
 #include <algorithm>
@@ -180,7 +181,7 @@ Status SpiTransport::writeChunk(std::span<const uint8_t> data) {
     return TRANSPORT_ERROR;
   }
 
-  ESP_LOG_BUFFER_HEX_LEVEL(TAG, data.data(), data.size(), ESP_LOG_VERBOSE);
+  ESP_LOGV(TAG, "writeChunk: len=%d, data=%s", data.size(), fmt::format("{:02X}", fmt::join(data, "")).c_str());
   return SUCCESS;
 }
 
@@ -240,7 +241,7 @@ Status SpiTransport::readChunk(std::span<uint8_t> buffer) {
 
   std::copy(_dma_buffer, _dma_buffer + buffer.size(), buffer.data());
 
-  ESP_LOG_BUFFER_HEX_LEVEL(TAG, buffer.data(), buffer.size(), ESP_LOG_VERBOSE);
+  ESP_LOGV(TAG, "readChunk: len=%d, data=%s", buffer.size(), fmt::format("{:02X}", fmt::join(buffer, "")).c_str());
   return SUCCESS;
 }
 
