@@ -112,7 +112,7 @@ SpiTransport::~SpiTransport() {
 }
 
 void IRAM_ATTR SpiTransport::irq_isr_handler(void *arg) {
-  SpiTransport *transport = static_cast<SpiTransport *>(arg);
+  auto *transport = static_cast<SpiTransport *>(arg);
   if (transport->_pending.load(std::memory_order_acquire)) {
     transport->_ready.store(true, std::memory_order_release);
   }
@@ -124,8 +124,7 @@ void SpiTransport::abort() {
   gpio_set_level(_ss, 0);
   vTaskDelay(2 / portTICK_PERIOD_MS);
   static const uint8_t ABORT[7] = {0x01, 0, 0, 0xFF, 0, 0xFF, 0};
-  spi_transaction_t t_data;
-  memset(&t_data, 0, sizeof(t_data));
+  spi_transaction_t t_data = {};
   t_data.length = sizeof(ABORT) * 8;
   t_data.tx_buffer = ABORT;
 
@@ -142,8 +141,7 @@ Transaction SpiTransport::begin() {
   gpio_set_level(_ss, 0);
   ets_delay_us(500);
 
-  spi_transaction_t t_cmd;
-  memset(&t_cmd, 0, sizeof(t_cmd));
+  spi_transaction_t t_cmd = {};
   t_cmd.flags = SPI_TRANS_USE_TXDATA;
   t_cmd.length = 8;
   t_cmd.tx_data[0] = PN532_CMD_DATA_WRITE;
@@ -167,8 +165,7 @@ Status SpiTransport::writeChunk(span<const uint8_t> data) {
 
   std::copy(data.begin(), data.end(), _dma_buffer);
 
-  spi_transaction_t t_data;
-  memset(&t_data, 0, sizeof(t_data));
+  spi_transaction_t t_data = {};
   t_data.length = data.size() * 8;
   t_data.tx_buffer = _dma_buffer;
 
@@ -202,8 +199,7 @@ Status SpiTransport::prepareRead() {
   gpio_set_level(_ss, 0);
   ets_delay_us(100);
 
-  spi_transaction_t t_cmd;
-  memset(&t_cmd, 0, sizeof(t_cmd));
+  spi_transaction_t t_cmd = {};
   t_cmd.flags = SPI_TRANS_USE_TXDATA;
   t_cmd.length = 8;
   t_cmd.tx_data[0] = PN532_CMD_DATA_READ;
@@ -224,8 +220,7 @@ Status SpiTransport::readChunk(span<uint8_t> buffer) {
     return TRANSPORT_ERROR;
   }
 
-  spi_transaction_t t_data;
-  memset(&t_data, 0, sizeof(t_data));
+  spi_transaction_t t_data = {};
   t_data.length = buffer.size() * 8;
   t_data.rxlength = buffer.size() * 8;
   t_data.rx_buffer = _dma_buffer;
@@ -236,7 +231,7 @@ Status SpiTransport::readChunk(span<uint8_t> buffer) {
     return TRANSPORT_ERROR;
   }
 
-  std::copy(_dma_buffer, _dma_buffer + buffer.size(), buffer.data());
+  std::copy_n(_dma_buffer, buffer.size(), buffer.data());
 
   ESP_LOGV(TAG, "readChunk: len=%d, data=%s", buffer.size(), fmt::format("{:02X}", fmt::join(buffer, "")).c_str());
   return SUCCESS;
@@ -254,8 +249,7 @@ bool SpiTransport::isRdy() {
   gpio_set_level(_ss, 0);
   ets_delay_us(100);
 
-  spi_transaction_t t;
-  memset(&t, 0, sizeof(t));
+  spi_transaction_t t = {};
 
   t.flags = SPI_TRANS_USE_TXDATA;
   t.length = 8;
