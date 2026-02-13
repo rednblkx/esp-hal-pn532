@@ -2,13 +2,13 @@
 
 #include "sdkconfig.h"
 #include "soc/gpio_num.h"
+#include "pn532_cxx/span.hpp"
 #include "pn532_cxx/transport.hpp"
 #include <atomic>
 #include <cstddef>
 #include <driver/gpio.h>
 #include <driver/spi_master.h>
 #include <esp_heap_caps.h>
-#include <span>
 
 namespace pn532 {
 
@@ -26,10 +26,10 @@ public:
   Transaction begin() override;
 
 protected:
-  Status writeChunk(std::span<const uint8_t> data) override;
+  Status writeChunk(span<const uint8_t> data) override;
   bool waitReady(uint32_t timeout_ms) override;
   Status prepareRead() override;
-  Status readChunk(std::span<uint8_t> buffer) override;
+  Status readChunk(span<uint8_t> buffer) override;
   void endTransaction() override;
 
 private:

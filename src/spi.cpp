@@ -8,14 +8,11 @@
 #include "fmt/ranges.h"
 #include "hal/gpio_types.h"
 #include "soc/gpio_num.h"
-#include <algorithm>
-#include <cstdint>
 #include <cstring>
 #include <esp_log.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <rom/ets_sys.h>
-#include <span>
 
 static const char *TAG = "PN532::SPI";
 
@@ -162,7 +159,7 @@ Transaction SpiTransport::begin() {
   return Transaction(*this, true);
 }
 
-Status SpiTransport::writeChunk(std::span<const uint8_t> data) {
+Status SpiTransport::writeChunk(span<const uint8_t> data) {
   if (!_dma_buffer || data.size() > DMA_BUFFER_SIZE) {
     ESP_LOGE(TAG, "writeChunk: DMA buffer unavailable or data too large");
     return TRANSPORT_ERROR;
@@ -221,7 +218,7 @@ Status SpiTransport::prepareRead() {
   return SUCCESS;
 }
 
-Status SpiTransport::readChunk(std::span<uint8_t> buffer) {
+Status SpiTransport::readChunk(span<uint8_t> buffer) {
   if (!_dma_buffer || buffer.size() > DMA_BUFFER_SIZE) {
     ESP_LOGE(TAG, "readChunk: DMA buffer unavailable or request too large");
     return TRANSPORT_ERROR;

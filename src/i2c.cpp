@@ -5,7 +5,6 @@
 #include <esp_log.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-#include <span>
 
 static const char *TAG = "PN532::I2C";
 
@@ -49,7 +48,7 @@ Transaction I2cTransport::begin() {
   return Transaction(*this, true);
 }
 
-Status I2cTransport::writeChunk(std::span<const uint8_t> data) {
+Status I2cTransport::writeChunk(span<const uint8_t> data) {
   i2c_cmd_handle_t cmd = i2c_cmd_link_create();
   i2c_master_start(cmd);
   i2c_master_write_byte(cmd, (_address << 1) | I2C_MASTER_WRITE, true);
@@ -96,7 +95,7 @@ Status I2cTransport::prepareRead() {
   return SUCCESS;
 }
 
-Status I2cTransport::readChunk(std::span<uint8_t> buffer) {
+Status I2cTransport::readChunk(span<uint8_t> buffer) {
   i2c_cmd_handle_t cmd = i2c_cmd_link_create();
   i2c_master_start(cmd);
   i2c_master_write_byte(cmd, (_address << 1) | I2C_MASTER_READ, true);

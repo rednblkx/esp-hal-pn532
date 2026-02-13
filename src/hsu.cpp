@@ -5,7 +5,6 @@
 #include <esp_log.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-#include <span>
 #include <vector>
 
 static const char *TAG = "PN532::HSU";
@@ -53,7 +52,7 @@ Transaction HsuTransport::begin() {
   return Transaction(*this, true);
 }
 
-Status HsuTransport::writeChunk(std::span<const uint8_t> data) {
+Status HsuTransport::writeChunk(span<const uint8_t> data) {
   int written = uart_write_bytes(_uart_num, data.data(), data.size());
   if (written < 0) {
     ESP_LOGE(TAG, "UART write failed");
@@ -74,7 +73,7 @@ Status HsuTransport::prepareRead() {
   return SUCCESS;
 }
 
-Status HsuTransport::readChunk(std::span<uint8_t> buffer) {
+Status HsuTransport::readChunk(span<uint8_t> buffer) {
   int length = uart_read_bytes(_uart_num, buffer.data(), buffer.size(),
                                pdMS_TO_TICKS(_timeout_ms));
   if (length < 0) {
