@@ -128,8 +128,20 @@ void SpiTransport::abort() {
   t_data.length = sizeof(ABORT) * 8;
   t_data.tx_buffer = ABORT;
 
-  spi_device_transmit(_spi, &t_data);
+  esp_err_t ret = spi_device_acquire_bus(_spi, portMAX_DELAY);
+
+  if(ret != ESP_OK){
+    ESP_LOGE(TAG, "abort: Failed to acquire SPI Bus: %d", ret);
+    return;
+  }
+
+  ret = spi_device_transmit(_spi, &t_data);
+  if(ret != ESP_OK){
+    ESP_LOGE(TAG, "abort: Failed to transmit data");
+    return;
+  }
   gpio_set_level(_ss, 1);
+  spi_device_release_bus(_spi);
   _pending.store(false, std::memory_order_release);
   _ready.store(false, std::memory_order_release);
 }
@@ -146,9 +158,15 @@ Transaction SpiTransport::begin() {
   t_cmd.length = 8;
   t_cmd.tx_data[0] = PN532_CMD_DATA_WRITE;
 
-  esp_err_t ret = spi_device_transmit(_spi, &t_cmd);
+  esp_err_t ret = spi_device_acquire_bus(_spi, portMAX_DELAY);
+  if(ret != ESP_OK){
+    ESP_LOGE(TAG, "begin: Failed to acquire SPI Bus: %d", ret);
+    return Transaction(*this, false);
+  }
+  ret = spi_device_transmit(_spi, &t_cmd);
+  spi_device_release_bus(_spi);
   if (ret != ESP_OK) {
-    ESP_LOGE(TAG, "SPI begin() cmd failed");
+    ESP_LOGE(TAG, "begin: Failed to transmit data: %d", ret);
     gpio_set_level(_ss, 1);
     _pending.store(false, std::memory_order_release);
     return Transaction(*this, false);
@@ -169,7 +187,13 @@ Status SpiTransport::writeChunk(span<const uint8_t> data) {
   t_data.length = data.size() * 8;
   t_data.tx_buffer = _dma_buffer;
 
-  esp_err_t ret = spi_device_transmit(_spi, &t_data);
+  esp_err_t ret = spi_device_acquire_bus(_spi, portMAX_DELAY);
+  if(ret != ESP_OK){
+    ESP_LOGE(TAG, "writeChunk: Failed to acquire SPI Bus: %d", ret);
+    return TRANSPORT_ERROR;
+  }
+  ret = spi_device_transmit(_spi, &t_data);
+  spi_device_release_bus(_spi);
   if (ret != ESP_OK) {
     ESP_LOGE(TAG, "SPI writeChunk failed");
     return TRANSPORT_ERROR;
@@ -204,7 +228,13 @@ Status SpiTransport::prepareRead() {
   t_cmd.length = 8;
   t_cmd.tx_data[0] = PN532_CMD_DATA_READ;
 
-  esp_err_t ret = spi_device_transmit(_spi, &t_cmd);
+  esp_err_t ret = spi_device_acquire_bus(_spi, portMAX_DELAY);
+  if(ret != ESP_OK){
+    ESP_LOGE(TAG, "prepareRead: Failed to acquire SPI Bus: %d", ret);
+    return TRANSPORT_ERROR;
+  }
+  ret = spi_device_transmit(_spi, &t_cmd);
+  spi_device_release_bus(_spi);
   if (ret != ESP_OK) {
     ESP_LOGE(TAG, "SPI prepareRead cmd failed");
     gpio_set_level(_ss, 1);
@@ -225,7 +255,13 @@ Status SpiTransport::readChunk(span<uint8_t> buffer) {
   t_data.rxlength = buffer.size() * 8;
   t_data.rx_buffer = _dma_buffer;
 
-  esp_err_t ret = spi_device_transmit(_spi, &t_data);
+  esp_err_t ret = spi_device_acquire_bus(_spi, portMAX_DELAY);
+  if(ret != ESP_OK){
+    ESP_LOGE(TAG, "readChunk: Failed to acquire SPI Bus: %d", ret);
+    return TRANSPORT_ERROR;
+  }
+  ret = spi_device_transmit(_spi, &t_data);
+  spi_device_release_bus(_spi);
   if (ret != ESP_OK) {
     ESP_LOGE(TAG, "SPI readChunk failed");
     return TRANSPORT_ERROR;
@@ -249,6 +285,11 @@ bool SpiTransport::isRdy() {
   gpio_set_level(_ss, 0);
   ets_delay_us(100);
 
+  esp_err_t ret = spi_device_acquire_bus(_spi, portMAX_DELAY);
+  if(ret != ESP_OK){
+    ESP_LOGE(TAG, "isRdy: Failed to acquire SPI Bus: %d", ret);
+    return false;
+  }
   spi_transaction_t t = {};
 
   t.flags = SPI_TRANS_USE_TXDATA;
@@ -266,6 +307,7 @@ bool SpiTransport::isRdy() {
   status_byte = t.rx_data[0];
 
   gpio_set_level(_ss, 1);
+  spi_device_release_bus(_spi);
 
   return status_byte & 0x01;
 }
