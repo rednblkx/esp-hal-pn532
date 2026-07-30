@@ -7,6 +7,7 @@
 #include "esp_intr_alloc.h"
 #include "fmt/ranges.h"
 #include "hal/gpio_types.h"
+#include "pn532_cxx/transaction.hpp"
 #include "soc/gpio_num.h"
 #include <cstring>
 #include <esp_log.h>
@@ -178,7 +179,7 @@ Transaction SpiTransport::begin() {
 Status SpiTransport::writeChunk(span<const uint8_t> data) {
   if (!_dma_buffer || data.size() > DMA_BUFFER_SIZE) {
     ESP_LOGE(TAG, "writeChunk: DMA buffer unavailable or data too large");
-    return TRANSPORT_ERROR;
+    return Status::TRANSPORT_ERROR;
   }
 
   std::copy(data.begin(), data.end(), _dma_buffer);
@@ -190,17 +191,17 @@ Status SpiTransport::writeChunk(span<const uint8_t> data) {
   esp_err_t ret = spi_device_acquire_bus(_spi, portMAX_DELAY);
   if(ret != ESP_OK){
     ESP_LOGE(TAG, "writeChunk: Failed to acquire SPI Bus: %d", ret);
-    return TRANSPORT_ERROR;
+    return Status::TRANSPORT_ERROR;
   }
   ret = spi_device_transmit(_spi, &t_data);
   spi_device_release_bus(_spi);
   if (ret != ESP_OK) {
     ESP_LOGE(TAG, "SPI writeChunk failed");
-    return TRANSPORT_ERROR;
+    return Status::TRANSPORT_ERROR;
   }
 
   ESP_LOGV(TAG, "writeChunk: len=%d, data=%s", data.size(), fmt::format("{:02X}", fmt::join(data, "")).c_str());
-  return SUCCESS;
+  return Status::SUCCESS;
 }
 
 bool SpiTransport::waitReady(uint32_t timeout_ms) {
@@ -231,23 +232,23 @@ Status SpiTransport::prepareRead() {
   esp_err_t ret = spi_device_acquire_bus(_spi, portMAX_DELAY);
   if(ret != ESP_OK){
     ESP_LOGE(TAG, "prepareRead: Failed to acquire SPI Bus: %d", ret);
-    return TRANSPORT_ERROR;
+    return Status::TRANSPORT_ERROR;
   }
   ret = spi_device_transmit(_spi, &t_cmd);
   spi_device_release_bus(_spi);
   if (ret != ESP_OK) {
     ESP_LOGE(TAG, "SPI prepareRead cmd failed");
     gpio_set_level(_ss, 1);
-    return TRANSPORT_ERROR;
+    return Status::TRANSPORT_ERROR;
   }
 
-  return SUCCESS;
+  return Status::SUCCESS;
 }
 
 Status SpiTransport::readChunk(span<uint8_t> buffer) {
   if (!_dma_buffer || buffer.size() > DMA_BUFFER_SIZE) {
     ESP_LOGE(TAG, "readChunk: DMA buffer unavailable or request too large");
-    return TRANSPORT_ERROR;
+    return Status::TRANSPORT_ERROR;
   }
 
   spi_transaction_t t_data = {};
@@ -258,19 +259,19 @@ Status SpiTransport::readChunk(span<uint8_t> buffer) {
   esp_err_t ret = spi_device_acquire_bus(_spi, portMAX_DELAY);
   if(ret != ESP_OK){
     ESP_LOGE(TAG, "readChunk: Failed to acquire SPI Bus: %d", ret);
-    return TRANSPORT_ERROR;
+    return Status::TRANSPORT_ERROR;
   }
   ret = spi_device_transmit(_spi, &t_data);
   spi_device_release_bus(_spi);
   if (ret != ESP_OK) {
     ESP_LOGE(TAG, "SPI readChunk failed");
-    return TRANSPORT_ERROR;
+    return Status::TRANSPORT_ERROR;
   }
 
   std::copy_n(_dma_buffer, buffer.size(), buffer.data());
 
   ESP_LOGV(TAG, "readChunk: len=%d, data=%s", buffer.size(), fmt::format("{:02X}", fmt::join(buffer, "")).c_str());
-  return SUCCESS;
+  return Status::SUCCESS;
 }
 
 void SpiTransport::endTransaction() {

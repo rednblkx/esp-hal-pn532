@@ -2,6 +2,7 @@
 // NOT READY FOR USE
 
 #include "pn532_hal/i2c.hpp"
+#include "pn532_cxx/transaction.hpp"
 #include <esp_log.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -60,11 +61,11 @@ Status I2cTransport::writeChunk(span<const uint8_t> data) {
 
   if (ret != ESP_OK) {
     ESP_LOGE(TAG, "I2C Write failed");
-    return TRANSPORT_ERROR;
+    return Status::TRANSPORT_ERROR;
   }
 
   ESP_LOG_BUFFER_HEX_LEVEL(TAG, data.data(), data.size(), ESP_LOG_VERBOSE);
-  return SUCCESS;
+  return Status::SUCCESS;
 }
 
 bool I2cTransport::waitReady(uint32_t timeout_ms) {
@@ -92,7 +93,7 @@ bool I2cTransport::waitReady(uint32_t timeout_ms) {
 
 Status I2cTransport::prepareRead() {
   // I2C doesn't need special preparation - reads are atomic
-  return SUCCESS;
+  return Status::SUCCESS;
 }
 
 Status I2cTransport::readChunk(span<uint8_t> buffer) {
@@ -118,11 +119,11 @@ Status I2cTransport::readChunk(span<uint8_t> buffer) {
 
   if (ret != ESP_OK) {
     ESP_LOGE(TAG, "I2C Read failed");
-    return TRANSPORT_ERROR;
+    return Status::TRANSPORT_ERROR;
   }
 
   ESP_LOG_BUFFER_HEX_LEVEL(TAG, buffer.data(), buffer.size(), ESP_LOG_VERBOSE);
-  return SUCCESS;
+  return Status::SUCCESS;
 }
 
 void I2cTransport::endTransaction() {

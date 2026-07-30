@@ -56,11 +56,11 @@ Status HsuTransport::writeChunk(span<const uint8_t> data) {
   int written = uart_write_bytes(_uart_num, data.data(), data.size());
   if (written < 0) {
     ESP_LOGE(TAG, "UART write failed");
-    return TRANSPORT_ERROR;
+    return Status::TRANSPORT_ERROR;
   }
 
   ESP_LOG_BUFFER_HEX_LEVEL(TAG, data.data(), data.size(), ESP_LOG_VERBOSE);
-  return SUCCESS;
+  return Status::SUCCESS;
 }
 
 bool HsuTransport::waitReady(uint32_t timeout_ms) {
@@ -70,7 +70,7 @@ bool HsuTransport::waitReady(uint32_t timeout_ms) {
 }
 
 Status HsuTransport::prepareRead() {
-  return SUCCESS;
+  return Status::SUCCESS;
 }
 
 Status HsuTransport::readChunk(span<uint8_t> buffer) {
@@ -78,16 +78,16 @@ Status HsuTransport::readChunk(span<uint8_t> buffer) {
                                pdMS_TO_TICKS(_timeout_ms));
   if (length < 0) {
     ESP_LOGE(TAG, "UART Read failed");
-    return TRANSPORT_ERROR;
+    return Status::TRANSPORT_ERROR;
   }
   if (static_cast<size_t>(length) < buffer.size()) {
     ESP_LOGD(TAG, "UART Read short: got %d, expected %zu", length,
              buffer.size());
-    return TIMEOUT;
+    return Status::TIMEOUT;
   }
 
   ESP_LOG_BUFFER_HEX_LEVEL(TAG, buffer.data(), buffer.size(), ESP_LOG_VERBOSE);
-  return SUCCESS;
+  return Status::SUCCESS;
 }
 
 void HsuTransport::endTransaction() {
