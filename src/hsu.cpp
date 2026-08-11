@@ -19,7 +19,9 @@ HsuTransport::HsuTransport(uart_port_t uart_num, gpio_num_t tx, gpio_num_t rx)
       .parity = UART_PARITY_DISABLE,
       .stop_bits = UART_STOP_BITS_1,
       .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+      .rx_flow_ctrl_thresh = 0,
       .source_clk = UART_SCLK_DEFAULT,
+      .flags = {},
   };
 
   esp_err_t ret = uart_param_config(_uart_num, &uart_config);
